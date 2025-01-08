@@ -1,0 +1,7 @@
+content/**
+!content/.gitkeep
+extracted?/**
+!extracted?/.gitkeep
+.info*
+.vscode
+.git
