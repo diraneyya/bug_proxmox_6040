@@ -2,12 +2,12 @@
 
 _This repository contains a functional demo, and a following discussion._
 
-The intention is to demonstrate, and then explain the context for [bug report 6040](https://bugzilla.proxmox.com/show_bug.cgi?id=6040) and the suggested [patch](https://lore.proxmox.com/pve-devel/mailman.80.1736016466.441.pve-devel@lists.proxmox.com/T/#u).
+The intention is to demonstrate, and then explain the context for [bug report 6040](https://bugzilla.proxmox.com/show_bug.cgi?id=6040) and the [patch](https://lore.proxmox.com/pve-devel/mailman.80.1736016466.441.pve-devel@lists.proxmox.com/T/#u) linked to it.
 
 ## Table of contents
 
 - Instructions for Interactive Demo
-- Discussion and Rational for Patch
+- Discussion and Patch Rationale
 
 ## Interactive Demo
 
@@ -16,7 +16,7 @@ The purpose of the demo is to demonstrate how exclude patterns work under `tar`.
 ### Instructions
 
 1.  Clone the repository. I prefer to clone all of my repositories to `$HOME/repos`, which I am assuming below:
-
+    
     ```bash
     cd ~
     git clone https://github.com/diraneyya/bug_proxmox_6040.git tar_extraction_demo
@@ -24,6 +24,7 @@ The purpose of the demo is to demonstrate how exclude patterns work under `tar`.
     ```
   
 2.  After cloning the repository, type in the following commands: 
+    
     ```bash
     cd ~/repos/tar_extraction_demo
     tar tf file1.tar
@@ -36,14 +37,14 @@ The purpose of the demo is to demonstrate how exclude patterns work under `tar`.
   > The two files, [file1.tar](./file1.tar) and [file2.tar](./file2.tar) contain the same set of files and directories. Yet, they are different in an important way. Run the two commands above to figure out how.
   
 3.  Now is the time to spin up the demo using the [demo.sh](./demo.sh) script:
-   
+    
     ```bash
     cd ~/repos/tar_extraction_demo
     # run the script
     ./demo.sh
     ```
 
-4.  The script might take a bit of time to run, the first time you invoke it. It might also offer instructions on how to install missing utilities (such as `tree` or `tmux`) or exit if the `docker` command is not found on the local system. 
+4.  The script might take a bit of time to run on the first time it is invoked, so please be patient. It might also offer instructions on how to install missing utilities (such as `tree` or `tmux`), or refuse to run if the `docker` command was not found on the local system.
    
   > [!TIP]
   > Docker is used by the script to mimic the Debian-12 environment used by Proxmox when extracting archives.
@@ -51,10 +52,10 @@ The purpose of the demo is to demonstrate how exclude patterns work under `tar`.
   > [!NOTE]
   > Unlike `tree` and `tmux`, the script does not try to offer advice on how to install Docker.
    
-5.  After the demo is spun up, you will be able to see a horizontal pane at the top, for experimenting with different exclude patterns, and three vertical panes at the bottom. These are for:
-    - The archive's original contents in the [contents](./contents) folder. (bottom left)
-    - The results of extracting [file1.tar](./file1.tar) to the [extracted1](./extracted1) folder. (bottom middle)
-    - The results of extracting [file2.tar](./file2.tar) to the [extracted2](./extracted2) folder. (bottom right)
+5.  After launching the demo, you must see a horizontal pane at the top, and three vertical panes at the bottom. These are for:
+    - The archive's original contents in the [content](./content) folder. **(bottom left)**
+    - The results of extracting [file1.tar](./file1.tar) to the [extracted1](./extracted1) folder using the `test_tar_extraction` helper function. **(bottom middle)**
+    - The results of extracting [file2.tar](./file2.tar) to the [extracted2](./extracted2) folder using the `test_tar_extraction` helper function. **(bottom right)**
 
     ![](./demo.png)
 
@@ -62,7 +63,7 @@ The purpose of the demo is to demonstrate how exclude patterns work under `tar`.
   > Initially, the bottom middle and bottom right panes, are empty. This will change as you start running the extraction commands at the top pane. Note that with every extraction, the contents of the folders are wiped out to simulate a fresh start. Hence, if the extraction command fails, then both directories will remain empty.
 
 6.  Now let us start by extracting both archives using no exclusion patterns at all:
-   
+    
     ```bash
     test_tar_extraction
     ```
@@ -71,41 +72,51 @@ The purpose of the demo is to demonstrate how exclude patterns work under `tar`.
   > The `test_tar_extraction` helper will take the arguments you supply to it and channel them to `tar` for the extraction of both archives (i.e. [file1.tar](./file1.tar) and [file2.tar](./file2.tar)).
 
   > [!WARNING]
-  > Can you make sense of what you see? Are you able to see the full `tar` command being used? was the extraction successful?
+  > Can you make sense of what you see after running this command? Are you able to see the full `tar` command being used underneath? was the extraction successful in this case?
 
 7.  Now let us try to supply an empty exclusion pattern, as follows:
-   
+    
     ```bash
     test_tar_extraction --exclude
     ```
 
   > [!WARNING]
-  > Can you make sense of what you see? Are you able to see the full `tar` command being used? was the extraction successful in this case?
+  > Can you make sense of what you see running this command? Are you able to see the full `tar` command being used by `test_tar_extraction`? was the extraction successful in this case?
 
-8.  Now, try some exclude patterns:
-   
-   ```bash
-   test_tar_extraction --exclude *
-   test_tar_extraction --exclude sample123
-   test_tar_extraction --exclude ./sample123
-   test_tar_extraction --exclude sample123/*
-   test_tar_extraction --exclude ./sample123/*
-   ```
+8.  Now, try some more exclude patterns:
+    
+    ```bash
+    test_tar_extraction --exclude *
+    test_tar_extraction --exclude sample123      # what happened?
+    test_tar_extraction --exclude sample123/*    # is this what we want?
+    test_tar_extraction --exclude ./sample123    # what happened?
+    test_tar_extraction --exclude ./sample123/*  # is this what we want?
+    ```
 
   > [!NOTE]
-  > As you may have already figured out, the root `sample123` folder is intended to model the root `dev` folder (in a root filesystem archive). There are two folders named `sample123`, one of which needs to be extracted (the nested one), while the other's contents need to be excluded (the one at the root of the archive).
+  > The goal here is to exclude the contents of the root `sample123` folder in the archive, leaving an empty root directory after the extraction. Note that there is another nested directory with the same name (i.e. `[./]sample789/sample123`), which needs to be extracted as-is.
 
-9. Taking into account what you learnt above, now you are able to supply the exclude patterns needed to exclude the root `sample123` folder in **both** archives:
-   
-   ```bash
-   test_tar_extraction --exclude sample123/* --exclude ./sample123/*
-   # smarter alternative, which expands to the same
-   test_tar_extraction --exclude={,./}sample123/*
-   ```
+  > [!TIP]
+  > If you are wondering why supplying an exclusion pattern of just `sample123` does not exclude the non-root (i.e. nested) directory, then try using the `--no-anchored` option:
+  > ```bash
+  > test_tar_extraction --no-anchored --exclude sample123
+  > # "tar xf file?.tar -C extracted? --anchored --no-anchored --exclude sample123"
+  > # note that the supplied "--no-anchored" cancels the "--anchored" option built
+  > # into the `test_tar_extraction` helper function.
+  > ```
+
+9.  Finally. Now you are able to take everything you learnt above and apply it to create a `tar` exclusion pattern that successfully excludes the root `sample123` folder in **both archives**:
+    
+    ```bash
+    test_tar_extraction --exclude sample123/* --exclude ./sample123/* # uses --anchored
+    # a smarter alternative, which expands to the same
+    test_tar_extraction --exclude={,./}sample123/*
+    ```
 
 ### Cleaning Up
 
-Before moving to the discussion. Exit the demo using <kbd>Ctrl</kbd>+<kbd>B</kbd>, followed by pressing <kbd>D</kbd>. After that, clean the environment using the following command:
+Before moving on to the discussion part of this README file. You can exit the demo using <kbd>Ctrl</kbd>+<kbd>B</kbd>, followed by <kbd>D</kbd>. After that, you can clean the environment using the following clean-up command:
+
 ```bash
 cd ~/repos/tar_extraction_demo
 # run the cleaning script
@@ -114,30 +125,21 @@ cd ~/repos/tar_extraction_demo
 
 ## Discussion
 
-There are many root filesystems published on the internet for virtualization purposes. Some of these are intended for virtual machines, and some of them, are intended for containers.
-
-Some of these root-filesystem tarballs contains paths that start with a _dot slash_ (like [file1.tar](./file1.tar)), while others, contain paths that start immediately (like [file2.tar](./file1.tar)).
-
-Additonally, some of these root-filesystem tarballs contain populated system root folder (e.g. a populated `dev`), while others, omit these directories or contain unpopulated one.
-
-This matters because, tarballs that contain a populated root `dev` directory are not compatible with LXC containers, since an LXC container gets its root `dev` folder populated during its creation.
-
-Hence, when the tarball contains a populated root `dev` directory, even though the rest of the root filesystem contents can be used as the basis of an LXC container, the container creation fails.
-
 ### Current Code
 
-This [line](https://github.com/proxmox/pve-container/blob/85a1397d7254b0d9f042c0558578f4d5488e5446/src/PVE/LXC/Create.pm#L78) excludes a root `dev` directory's contents from being extracted to the container's root filesystem during LXC container creation (from `pve-container.git`/`src/PVE/LXC/Create.pm`):
+This [relevant line](https://github.com/proxmox/pve-container/blob/85a1397d7254b0d9f042c0558578f4d5488e5446/src/PVE/LXC/Create.pm#L78) of the current codebase excludes the root `dev` folder's  contents when extracting the root filesystem for an LXC container in Proxmox:
+
 ```perl
     push @$cmd, '--exclude' , './dev/*';
 ```
 
-<mark>The only issue here, is that the current code assumes that the tarball has paths starting with a _dot slash_ (similar to [file1.tar](./file1.tar)), rather than starting directly (similar to [file2.tar](./file2.tar)).</mark>
+<mark>The only issue here, is that it assumes that the tarball has paths starting with a _dot slash_ (similar to [file1.tar](./file1.tar)), rather than without a _dot slash_ (similar to [file2.tar](./file2.tar)).</mark>
 
 ### Inquiry
 
-Below is a table showing different root filesystem images found on the internet, and the challenges they present when it comes to LXC container creation in Proxmox.
+Below is a table showing different root filesystem images and converters, and assessing their output's compatibility with Linux containers in Proxmox.
 
-To look for these images, I searched the web for "cloud images", which often included different formats for different virtualization technologies. As long as I was able to find something that contains a root-filesystem archive of any kind, I considered the idea of attempting to use these archives to create LXC containers a valid one.
+The idea here is that anything that resembles a Linux **root-filesystem archive**, deserves an opportunity to be leveraged as a Linux container template —should this be, at all, possible.
 
 | Project    | Archive Path Prefix | Root `dev` Folder? | Before Patch | After Patch |
 |------------|---------------------|--------------------|:------------:|:-----------:|
@@ -159,29 +161,33 @@ To look for these images, I searched the web for "cloud images", which often inc
 ### Rationale for the Patch
 
 > [!TIP]
-> This section is edited by ChatGPT.
+> This section is improved by ChatGPT.
 
-As virtualization evolves from VMs to containers, Proxmox users increasingly seek to adapt existing VM workloads for Linux containers. A critical step in this process involves obtaining a root filesystem archive that encapsulates the operating system's essential contents. These archives, however, vary significantly depending on their origins:
+As virtualization evolved from VMs to containers, Proxmox users increasingly seeked to adapt existing VM workloads for Linux containers. A critical step in this process involves obtaining a root filesystem archive that encapsulates the operating system's essential contents. These archives, however, vary depending on their origins:
 
 1.  **Legacy Archives:** Derived from VM-oriented systems or live system images (e.g., squashfs archives).
 
     - Tend to include fully populated root folders (e.g. `/dev`).
-    - Often omit a leading `./` prefix in file paths within the archive.
+    - Often omit a leading `./` prefix in the paths within the archive.
 
 2.  **Modern Archives:** Designed for containerization or specific containerization technologies (e.g., Docker).
 
-    - Typically contain minimal or empty root folders, including `/dev`.
-    - Consistently include a `./` prefix for paths inside the archive.
+    - Typically contain minimal or empty root folders, including an empty `/dev`.
+    - Consistently include a `./` prefix in the paths inside the archive.
 
-The disparity in archive structure and paths creates challenges in LXC container creation, particularly with populated `/dev` directories. LXC containers manage their own `/dev`, and a populated `/dev` in the archive leads to creation failure.
+These differences create challenges in Linux container creation, particularly with populated `/dev` directories and paths without a _dot slash_. Linux containers manage their own root `/dev` folder, and hence a populated `/dev` in the archive's root leads to failure in container creation.
 
 ### The Current Situation
 
-The existing Proxmox codebase addresses this by excluding the `/dev` directory during archive extraction. However, the current exclusion pattern (--exclude `./dev/*`) assumes that all archive paths begin with `./`. While this works for modern archives, it fails for legacy archives lacking the `./` prefix. Consequently, users attempting to repurpose such archives must manually repackage them —a labor-intensive and unnecessary process.
+The existing Proxmox codebase addresses this by excluding the `/dev` directory during archive extraction. However, the current exclusion pattern (`--exclude ./dev/*`) assumes archive paths that begin with _dot slash_ `./`. While this works for modern archives, it is ineffective for legacy archives lacking the _dot slash_ `./` path prefix. Consequently, users attempting to repurpose such archives must manually repackage them —a labor-intensive and unnecessary process.
 
 ### The Proposed Modification
 
-The proposition is either to change the exclusion pattern to `dev/*`, to accommodate the legacy archives in which this failure is more likely to occur, or, alternatively, to accommodate both archive types. By using a more general exclusion pattern (`--exclude={,./}dev/*`), Proxmox can seamlessly handle archives with or without the `./` prefix in their paths. This approach eliminates the need for repackaging and ensures compatibility with a broader range of root filesystem archives.
+The proposed edit is rather simple, which is to change the exclusion pattern from `./dev/*` to `dev/*`, to accommodate the legacy archives in which this failure is more likely to occur.
+
+Alternatively, it is possible (and cheap) to accommodate **both** archive types, by using two exclusion patterns (`--exclude={,./}dev/*`).
+
+This approach eliminates the need for repackaging and ensures compatibility with a broader range of root filesystem archives.
 
 ### The Patch
 
