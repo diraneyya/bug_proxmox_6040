@@ -157,33 +157,31 @@ To look for these images, I searched for "cloud images", which often included di
 
 ### Rationale for the Patch
 
-As virtualization shifts from VMs to containers, many Proxmox users are already [on a mission](https://forum.proxmox.com/threads/docker-to-pve-lxc-conversion-steps-tool.143193/#post-735844) to run their VM workloads as Linux containers, instead.
+> [!TIP]
+> This section is edited by ChatGPT.
 
-To create an LXC container, we must obtain an archive that captures the contents of the root filesystem. These root filesystem archives have existed prior to containerization. An example of legacy root filesystem images are `squashfs` files found in _live systems_ (i.e. systems booted from read-only media).
+As virtualization evolves from VMs to containers, Proxmox users increasingly seek to adapt existing VM workloads for Linux containers. A critical step in this process involves obtaining a root filesystem archive that encapsulates the operating system's essential contents. These archives, however, vary significantly depending on their origins:
 
-In the same way, projects distribute (along with their VM images), root filesystem tarballs that reflect everything in the filesystem of a working VM. These, despite not being intended for containerization, can be leveraged easily (just by excluding [root system folders](https://discuss.linuxcontainers.org/t/simple-script-to-convert-any-gnu-linux-machine-into-a-proxmox-lxc-container/10339)).
+1. **Legacy Archives:** Derived from VM-oriented systems or live system images (e.g., squashfs archives).
 
-Namely, it would be a pity to have to repackage these archives, to leverage them as container templates.
+- Tend to include fully populated root folders (e.g. `/dev`).
+- Often omit a leading `./` prefix in file paths within the archive.
 
-Finally, there are more modernly distributed root filesystems, which are either created with containerization in mind (similar to those distributed by Archlinux), or as part of another containerization technology (e.g. Docker, using [docker2lxc](https://github.com/diraneyya/docker2lxc)).
+1. **Modern Archives:** Designed for containerization or specific containerization technologies (e.g., Docker).
 
-#### Conclusion 
+- Typically contain minimal or empty root folders, including `/dev`.
+- Consistently include a `./` prefix for paths inside the archive.
 
-The root filesystem archives found online today fall into one of two categories:
+The disparity in archive structure and paths creates challenges in LXC container creation, particularly with populated `/dev` directories. LXC containers manage their own `/dev`, and a populated `/dev` in the archive leads to creation failure.
 
-1. Ones that are remnant from virtual machines.
-1. Ones that are distributed with containerization in mind.
+### The Current Situation
 
-The legacy archives tend to:
-- contain fully populated root system folders, including a fully-populated root `dev`folder
-- contain paths that start immediately (with a _dot slash_ `./` at the beginning)
+The existing Proxmox codebase addresses this by excluding the `/dev` directory during archive extraction. However, the current exclusion pattern (--exclude `./dev/*`) assumes that all archive paths begin with `./`. While this works for modern archives, it fails for legacy archives lacking the `./` prefix. Consequently, users attempting to repurpose such archives must manually repackage them —a labor-intensive and unnecessary process.
 
-The modern archives, on the other hand, tend to:
-- contain empty root system folders, including an empty root `dev` folder
-- contain paths that start wit a _dot slash_ `./`
+### The Proposed Modification
 
-> Hence, it is my belief that for the exclusion of the root `dev` folder (to prevent container-creation failure), which have existed in the codebase for almost 8 years now, **it makes more sense to use an exclusion pattern that does not start with a _dot slash_ `./`, which is what this patch does**
+The proposition is either to change the exclusion pattern to `dev/*`, to accommodate the legacy archives in which this failure is more likely to occur, or, alternatively, to accommodate both archive types. By using a more general exclusion pattern (`--exclude={,./}dev/*`), Proxmox can seamlessly handle archives with or without the `./` prefix in their paths. This approach eliminates the need for repackaging and ensures compatibility with a broader range of root filesystem archives.
 
-#### Patch 
+### The Patch
 
 https://lore.proxmox.com/pve-devel/mailman.80.1736016466.441.pve-devel@lists.proxmox.com/T/#u
