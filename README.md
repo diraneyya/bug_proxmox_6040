@@ -163,27 +163,27 @@ The idea here is that anything that resembles a Linux **root-filesystem archive*
 > [!TIP]
 > This section is improved by ChatGPT.
 
-As virtualization evolved from VMs to containers, Proxmox users increasingly seeked to adapt existing VM workloads for Linux containers. A critical step in this process involves obtaining a root filesystem archive that encapsulates the operating system's essential contents. These archives, however, vary depending on their origins:
+As virtualization evolved from VMs to containers, Proxmox users increasingly seeked to adapt existing VM workloads for Linux containers. A critical step in this process involves obtaining a root filesystem archive that encapsulates the base operating system. Such archives, however, vary depending on their origins:
 
 1.  **Legacy Archives:** Derived from VM-oriented systems or live system images (e.g., squashfs archives).
 
     - Tend to include fully populated root folders (e.g. `/dev`).
     - Often omit a leading `./` prefix in the paths within the archive.
 
-2.  **Modern Archives:** Designed for containerization or specific containerization technologies (e.g., Docker).
+2.  **Modern Archives:** Designed with containerization in mind or for specific containerization technologies (e.g., Docker).
 
-    - Typically contain minimal or empty root folders, including an empty `/dev`.
-    - Consistently include a `./` prefix in the paths inside the archive.
+    - Typically contain minimal or empty root folders, including an empty or a minimally populated `/dev`.
+    - Consistently include a `./` prefix in the paths within the archive.
 
-These differences create challenges in Linux container creation, particularly with populated `/dev` directories and paths without a _dot slash_. Linux containers manage their own root `/dev` folder, and hence a populated `/dev` in the archive's root leads to failure in container creation.
+These differences create challenges in Linux container creation, particularly with populated `/dev` directories and paths without a _dot slash_. Linux containers manage their own root `/dev` folder, and hence, a fully populated `/dev` in the archive's root leads to failure in container creation.
 
 ### The Current Situation
 
-The existing Proxmox codebase addresses this by excluding the `/dev` directory during archive extraction. However, the current exclusion pattern (`--exclude ./dev/*`) assumes archive paths that begin with _dot slash_ `./`. While this works for modern archives, it is ineffective for legacy archives lacking the _dot slash_ `./` path prefix. Consequently, users attempting to repurpose such archives must manually repackage them —a labor-intensive and unnecessary process.
+The existing Proxmox codebase addresses this by excluding the `/dev` root directory during archive extraction. However, the current exclusion pattern (`--exclude ./dev/*`) assumes archive paths that begin with _dot slash_ `./`. While this works for modern archives (which, generally speaking, do not have fully populated root folders), it is ineffective for legacy archives lacking the _dot slash_ `./` path prefix. Consequently, users attempting to repurpose such archives must manually repackage them —a labor-intensive and unnecessary process.
 
 ### The Proposed Modification
 
-The proposed edit is rather simple, which is to change the exclusion pattern from `./dev/*` to `dev/*`, to accommodate the legacy archives in which this failure is more likely to occur.
+The proposed edit is rather simple, which is to change the exclusion pattern from `./dev/*` to `dev/*`, to accommodate the legacy archives in which this failure is most likely to occur.
 
 Alternatively, it is possible (and cheap) to accommodate **both** archive types, by using two exclusion patterns (`--exclude={,./}dev/*`).
 
