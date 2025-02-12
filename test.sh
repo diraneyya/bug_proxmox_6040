@@ -36,7 +36,7 @@ docker pull debian:12 &>/dev/null
 
 if [[ $? -ne 0 ]]; then
     printf >&2 "Pulling the 'debian:12' Docker image failed.\n"
-    printf >&2 "\e[2m(%s)\e[0m\n" "check your internet connectivity and the Docker Hub site"
+    printf >&2 "\e[2m(%s)\e[0m\n" "is Docker Desktop/daemon running? are you connected to the internet?"
     exit 2
 fi
 
